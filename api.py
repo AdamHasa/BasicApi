@@ -1,29 +1,70 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
+import dataset
 import json
+import os
 
 app = Flask(__name__)
+db = dataset.connect('sqlite:///twitter.db')
+
+userTable = db['users']
+messageTable = db['messages']
+tagsTable = db['tags']
+messageTagsTable = db['messageTags']
+
+def fetch_db_user(id): 
+    return userTable.find_one(id=id)
+
+def fetch_db_user_all():
+    users = []
+    for user in userTable:
+        users.append(user)
+    return users
 
 @app.route("/get-user/<user_id>", methods=["GET"])
 def get_user(user_id):
-    user_data = {
-        "user_id": user_id,
-        "name": "Test Name",
-        "email": "Testmail@test.com"
-    }
-
-    extra = request.args.get("extra")
-    if extra:
-        user_data["extra"] = extra
+    user_data = fetch_db_user(user_id)
 
     return jsonify(user_data), 200
+
+@app.route("/get-users", methods=["GET"])
+def get_user_all():
+    user_data = fetch_db_user_all()
+
+    return jsonify(user_data), 200
+
+@app.route('/api/db_populate', methods=['GET'])
+def db_populate():
+    userTable.insert({
+        "name": "testname",
+        "email": "testmail@mail.com"
+    })
+
+    messageTable.insert({
+        "message": "test message",
+        "userId": "1"
+    })
+    tagsTable.insert({
+        "tag": "test tag"
+    })
+
+    messageTagsTable.insert({
+        "tag_id": "1",
+        "message_id": "1"
+    })
+
+    return make_response(jsonify(fetch_db_user_all()),
+                         200)
 
 @app.route("/create-user", methods=["POST"])
 def create_user():
     filepath = "database/users.json"
     data = request.get_json()
 
-    with open(filepath, "w") as outfile:
-        json.dump(data, outfile)
+    with open(filepath, "a") as outfile:
+        outfile.seek(0, os.SEEK_END)
+        if outfile.tell() > 0:
+            outfile.write(",\n")
+        json.dump(data, outfile, indent=4)
 
     return jsonify(data), 201
 
