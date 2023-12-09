@@ -111,19 +111,66 @@ def get_user_messages(user_id):
 
 @app.route('/tags/<message_id>', methods=['POST'])
 def add_tags(message_id):
-    pass
+    data = request.get_json()
+
+    if not messageTable.find_one(id=message_id):
+        return make_response(jsonify({"error": "Message not found"}), 404)
+
+    for tag_name in data.get('tags', []):
+        tag = tagsTable.find_one(tag=tag_name)
+        if not tag:
+            tag = tagsTable.insert({"tag": tag_name})
+
+        if isinstance(tag, dict):
+            existing_tag_message = messageTagsTable.find_one(tag_id=tag['id'], message_id=message_id)
+            if not existing_tag_message:
+                messageTagsTable.insert({"tag_id": tag['id'], "message_id": message_id})
+
+    return jsonify({"messageId": message_id}), 201
 
 @app.route('/tags/<message_id>', methods=['DELETE'])
 def remove_tags(message_id):
-    pass
+    data = request.get_json()
+
+    if not messageTable.find_one(id=message_id):
+        return make_response(jsonify({"error": "Message not found"}), 404)
+
+    for tag_name in data.get('tags', []):
+        tag = tagsTable.find_one(tag=tag_name)
+        if tag:
+            messageTagsTable.delete(message_id=message_id, tag_id=tag['id'])
+
+    return jsonify({"messageId": message_id}), 200
 
 @app.route('/tags', methods=['GET'])
 def get_all_tags():
-    pass
+    all_tags = [dict(tag) for tag in tagsTable.all()]
+    return jsonify(all_tags), 200
 
 @app.route('/tags/<tag_name>', methods=['GET'])
 def get_messages_by_tag(tag_name):
-    pass
+    tag = tagsTable.find_one(tag=tag_name)
+
+    if not tag:
+        return make_response(jsonify({"error": "Tag not found"}), 404)
+    
+    tag_messages = messageTagsTable.find(tag_id=tag['id'])
+
+    messages = []
+    for tag_message in tag_messages:
+        message_id = tag_message['message_id']
+        message = messageTable.find_one(id=message_id)
+        if message:
+            messages.append(dict(message))
+
+    return jsonify(messages), 200
+
+@app.route('/tagMessage', methods=['GET'])
+def get_all_tagMessage():
+    tagMessages = []
+    for tagMessage in messageTagsTable:
+        tagMessages.append(tagMessage)
+    return jsonify(tagMessages), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
