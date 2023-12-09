@@ -97,11 +97,17 @@ def create_message():
 
 @app.route('/messages', methods=['GET'])
 def get_all_messages():
-    pass
+    messages = []
+    for message in messageTable:
+        messages.append(message)
+    return jsonify(messages), 200
     
 @app.route('/messages/<user_id>', methods=['GET'])
 def get_user_messages(user_id):
-    pass
+    if not userTable.find_one(id=user_id):
+        return make_response(jsonify({"error": "User not found"}), 404)
+    user_messages = [dict(message) for message in messageTable.find(userId=user_id)]
+    return jsonify(user_messages), 200
 
 @app.route('/tags/<message_id>', methods=['POST'])
 def add_tags(message_id):
