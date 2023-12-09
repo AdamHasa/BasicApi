@@ -21,7 +21,7 @@ def db_populate():
         "userId": "1"
     })
     tagsTable.insert({
-        "tag": "test tag"
+        "tag": "testtag"
     })
 
     messageTagsTable.insert({
@@ -145,6 +145,11 @@ def remove_tags(message_id):
 @app.route('/tags', methods=['GET'])
 def get_all_tags():
     all_tags = [dict(tag) for tag in tagsTable.all()]
+
+    for tag in all_tags:
+        tag_id = tag['id']
+        tag['aantal keer gebruikt'] = messageTagsTable.count(tag_id=tag_id)
+
     return jsonify(all_tags), 200
 
 @app.route('/tags/<tag_name>', methods=['GET'])
