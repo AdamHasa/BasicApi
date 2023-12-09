@@ -1,7 +1,5 @@
 from flask import Flask, request, jsonify, make_response
 import dataset
-import json
-import os
 
 app = Flask(__name__)
 db = dataset.connect('sqlite:///twitter.db')
@@ -10,27 +8,6 @@ userTable = db['users']
 messageTable = db['messages']
 tagsTable = db['tags']
 messageTagsTable = db['messageTags']
-
-def fetch_db_user(id): 
-    return userTable.find_one(id=id)
-
-def fetch_db_user_all():
-    users = []
-    for user in userTable:
-        users.append(user)
-    return users
-
-@app.route("/get-user/<user_id>", methods=["GET"])
-def get_user(user_id):
-    user_data = fetch_db_user(user_id)
-
-    return jsonify(user_data), 200
-
-@app.route("/get-users", methods=["GET"])
-def get_user_all():
-    user_data = fetch_db_user_all()
-
-    return jsonify(user_data), 200
 
 @app.route('/api/db_populate', methods=['GET'])
 def db_populate():
@@ -55,26 +32,68 @@ def db_populate():
     return make_response(jsonify(fetch_db_user_all()),
                          200)
 
+def fetch_db_user(id): 
+    return userTable.find_one(id=id)
+
+def fetch_db_user_all():
+    users = []
+    for user in userTable:
+        users.append(user)
+    return users
+
+@app.route("/get-user/<user_id>", methods=["GET"])
+def get_user(user_id):
+    user_data = fetch_db_user(user_id)
+
+    return jsonify(user_data), 200
+
+@app.route("/get-users", methods=["GET"])
+def get_user_all():
+    user_data = fetch_db_user_all()
+
+    return jsonify(user_data), 200
+
+
 @app.route("/create-user", methods=["POST"])
 def create_user():
-    filepath = "database/users.json"
     data = request.get_json()
 
-    with open(filepath, "a") as outfile:
-        outfile.seek(0, os.SEEK_END)
-        if outfile.tell() > 0:
-            outfile.write(",\n")
-        json.dump(data, outfile, indent=4)
+    user_id = userTable.insert(data)
 
-    return jsonify(data), 201
+    return jsonify({"userId": user_id}), 201
+
+@app.route("/delete-user/<user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    if not userTable.find_one(id=user_id):
+        return make_response(jsonify({"error": "User not found"}), 404)
+    
+    userTable.delete(id=user_id)
+
+    return jsonify({"melding": f"gebruiker met id {user_id} verwijderd"}), 200
 
 @app.route('/update-user/<user_id>', methods=['PUT'])
 def update_user(user_id):
-    pass
+    data = request.get_json()
+
+    if not userTable.find_one(id=user_id):
+        return make_response(jsonify({"error": "User not found"}), 404)
+
+    data['id'] = user_id  
+    userTable.update(data, ['id'])
+
+    return jsonify(fetch_db_user(user_id)), 200
 
 @app.route('/create-message', methods=['POST'])
 def create_message():
-    pass
+    data = request.get_json()
+
+    user_id = data.get('userId')
+    if not userTable.find_one(id=user_id):
+        return make_response(jsonify({"error": "User not found"}), 404)
+
+    message_id = messageTable.insert(data)
+
+    return jsonify({"messageId": message_id}), 201
 
 @app.route('/messages', methods=['GET'])
 def get_all_messages():
